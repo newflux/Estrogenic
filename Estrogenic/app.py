@@ -9,7 +9,7 @@ import sqlite3
 import os
 
 # Setup Tesseract path (update this path if necessary)
-pytesseract.pytesseract.tesseract_cmd = r'C://Program Files//Tesseract-OCR//tesseract.exe'
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # SQLite Database setup
 DATABASE_FILE = "user_data.db"
@@ -85,7 +85,7 @@ def predict_image(image):
 init_db()
 
 # Load dataset and train the model
-DATASET_PATH = r'C://Users//Artist//Desktop//Estrogenic//DEDuCT_ChemicalBasicInformation.csv'
+DATASET_PATH = r'C:\Users\Artist\Desktop\Estrogenic\DEDuCT_ChemicalBasicInformation.csv'
 if not os.path.exists(DATASET_PATH):
     st.error(f"Dataset not found at {DATASET_PATH}")
     st.stop()

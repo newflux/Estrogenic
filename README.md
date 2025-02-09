@@ -29,17 +29,18 @@ https://github.com/user-attachments/assets/3138eff8-8731-4da4-ad2b-88ece27c9a36
 ### 1. Clone the Repository
 ```bash
 git clone https://github.com/your-repo/Estrogenic.git
-cd Estrogenic```
+cd Estrogenic
+```
 
 ### 2. Create a Virtual Environment (Optional but Recommended)
 ```bash
 python -m venv venv
-venv\Scripts\activate```
+venv\Scripts\activate
+```
 
 ### 3. Install Dependencies
 
 `pip install -r requirements.txt`
-
 
 ------------
 

@@ -2,14 +2,11 @@ import streamlit as st
 from PIL import Image
 import pytesseract
 import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
 import sqlite3
 import os
 
-# Setup Tesseract path (update this path if necessary)
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# Setup Tesseract path
+pytesseract.pytesseract.tesseract_cmd = r'C:/Program Files/Tesseract-OCR/tesseract.exe'
 
 # SQLite Database setup
 DATABASE_FILE = "user_data.db"
@@ -27,34 +24,26 @@ def init_db():
 
 # Register a new user
 def register_user(username, password):
-    try:
-        conn = sqlite3.connect(DATABASE_FILE)
-        c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE username = ?", (username,))
-        if c.fetchone():
-            st.error("Username already exists. Please choose a different username.")
-            return False
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
-        conn.commit()
-        conn.close()
-        st.success("Registration successful. Please login.")
-        return True
-    except Exception as e:
-        st.error(f"An error occurred during registration: {e}")
+    conn = sqlite3.connect(DATABASE_FILE)
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username = ?", (username,))
+    if c.fetchone():
+        st.error("Username already exists. Please choose a different username.")
         return False
+    c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+    conn.commit()
+    conn.close()
+    st.success("Registration successful. Please login.")
+    return True
 
 # Verify login credentials
 def check_login(username, password):
-    try:
-        conn = sqlite3.connect(DATABASE_FILE)
-        c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
-        user = c.fetchone()
-        conn.close()
-        return bool(user)
-    except Exception as e:
-        st.error(f"An error occurred during login: {e}")
-        return False
+    conn = sqlite3.connect(DATABASE_FILE)
+    c = conn.cursor()
+    c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
+    user = c.fetchone()
+    conn.close()
+    return bool(user)
 
 # Process uploaded image to extract text
 def process_image(image):
@@ -67,49 +56,57 @@ def process_image(image):
         st.error(f"Error processing the image: {e}")
         return ""
 
-# Predict text using the trained model
+# Predict text (always estrogenic)
 def predict_text(text):
-    text_tfidf = vectorizer.transform([text])
-    prediction = model.predict(text_tfidf)
-    return prediction
+    return check_estrogenicity(text)
 
-# Predict uploaded image
+# Predict uploaded image (always estrogenic)
 def predict_image(image):
     extracted_text = process_image(image)
-    if extracted_text:
-        prediction = predict_text(extracted_text)
-        return prediction, extracted_text
-    return None, ""
+    st.write("Extracted Text:", extracted_text)
+    prediction = check_estrogenicity(extracted_text)
+    return prediction, extracted_text
+
+# Load the chemical database (CSV)
+DATABASE_PATH = r"C:/Users/Artist/Desktop/Estrogenic\DEDuCT_ChemicalBasicInformation.csv"
+try:
+    chemical_data = pd.read_csv(DATABASE_PATH)
+except Exception as e:
+    st.error(f"Error reading the CSV file: {e}")
+    chemical_data = pd.DataFrame()  # Empty DataFrame if file read fails
+
+# Check if the 'ChemicalName' and 'Estrogenic' columns exist
+if 'Name' not in chemical_data.columns or 'estrogen present' not in chemical_data.columns:
+    st.error("The CSV file does not contain the required columns: 'ChemicalName' and 'Estrogenic'. Please check the file.")
+
+# Check if the chemical name exists in the database and return estrogenic status
+def check_estrogenicity(chemical_name):
+    # Ensure that chemical_name is a string and strip any extra spaces
+    if not isinstance(chemical_name, str) or not chemical_name.strip():
+        st.error("Invalid chemical name.")
+        return None
+    
+    chemical_name = chemical_name.strip()
+
+    # Check for matches in the DataFrame, case insensitive
+    matches = chemical_data[chemical_data['Name'].str.contains(chemical_name, case=False, na=False)]
+    
+    # Debugging: Check if matches were found
+    if not matches.empty:
+        st.write("Matching Chemicals Found:", matches)
+        estrogenic_status = matches['estrogen present'].iloc[0]  # Get the estrogenic status of the first match
+        if estrogenic_status == 1:
+            return "Estrogenic"
+        else:
+            return "Non Estrogenic"
+    else:
+        st.error(f"No match found for '{chemical_name}' in the database.")
+        return "No match found"
 
 # Initialize SQLite database
 init_db()
 
-# Load dataset and train the model
-DATASET_PATH = r'C:\Users\Artist\Desktop\Estrogenic\DEDuCT_ChemicalBasicInformation.csv'
-if not os.path.exists(DATASET_PATH):
-    st.error(f"Dataset not found at {DATASET_PATH}")
-    st.stop()
-
-df = pd.read_csv(DATASET_PATH)
-
-# Ensure the dataset has the required columns
-text_column_name = 'Name'  # Change this to your actual text column name
-if text_column_name not in df.columns or 'estrogen present' not in df.columns:
-    st.error("Dataset is missing required columns: 'Name' or 'estrogen present'")
-    st.stop()
-
-X = df[text_column_name]
-y = df['estrogen present']
-
-# Train the model
-vectorizer = TfidfVectorizer()
-X_tfidf = vectorizer.fit_transform(X)
-X_train, X_test, y_train, y_test = train_test_split(X_tfidf, y, test_size=0.2, random_state=42)
-
-model = LogisticRegression()
-model.fit(X_train, y_train)
-
-# Streamlit session state initialization
+# Streamlit session state
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = ""
@@ -147,7 +144,7 @@ else:
 
     st.title('Endocrine Disruptors and Estrogen Prediction')
 
-    # File uploader for image
+    # File uploader
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
     text_input = st.text_area("Or enter text directly:")
 
@@ -156,10 +153,10 @@ else:
         prediction, extracted_text = predict_image(image)
         st.image(image, caption='Uploaded Image', use_column_width=True)
         st.write('Extracted Text:', extracted_text)
-        if prediction is not None:
-            st.write('Prediction:', 'Estrogen present' if prediction[0] == 1 else 'Non-Estrogenic')
+        st.write('Prediction:', prediction)
 
     elif text_input:
         prediction = predict_text(text_input)
         st.write('Input Text:', text_input)
-        st.write('Prediction:', 'Estrogen present' if prediction[0] == 1 else 'Non-Estrogenic')
+        st.write('Prediction:', prediction)
+       
